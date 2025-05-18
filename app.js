@@ -37,8 +37,10 @@ app.get('/', (req, res) => {
 
 // ฟังก์ชันเพื่อจัดรูปแบบวันที่ โดยตัดส่วนของโซนเวลาออก
 const formatUpdateDate = (date) => {
-    if (!date) return 'N/A'; // ถ้าเป็นค่า null แสดง 'N/A'
-    return new Date(date).toString().split('GMT')[0].trim(); // ตัดข้อมูลหลัง GMT ออก
+    if (!date) return 'N/A';
+
+    const bangkokTime = new Date(new Date(date).getTime() + 7 * 60 * 60 * 1000); // GMT+7
+    return bangkokTime.toString().split('GMT')[0].trim();
 };
 
 // แสดงหน้า Upload พร้อม Dashboard ของ Subjects
@@ -87,6 +89,7 @@ app.get('/upload-subjects', (req, res) => {
                     // รวมชื่อและนามสกุลของอาจารย์ใน column professor
                     const prof = professors.find(p => p.prof_id === subject.prof_id);
                     subject.professor = prof ? prof.full_name : 'Unknown';  // ถ้าไม่พบจะให้แสดง "Unknown"
+                    subject.update_data = formatUpdateDate(subject.update_data); // ✅ Format date to Bangkok time
                 });
 
                 res.render('upload-subjects', { 
