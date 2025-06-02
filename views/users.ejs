@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <%- include('navbar') %>
+
+    <div class="content">
+        <h2>User Management</h2>
+
+        <!-- Upload Excel -->
+        <form id="excel-upload-form" enctype="multipart/form-data" class="form-group">
+            <input type="file" name="excelFile" id="excelFile" accept=".xlsx" required class="file-input">
+            <button type="submit" class="primary-btn">Upload Users</button>
+        </form>
+
+        <!-- User Table -->
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Professor ID</th><th>Name</th><th>Surname</th><th>Username</th><th>Email</th><th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% users.forEach(user => { %>
+                    <tr>
+                        <td><%= user.prof_id %></td>
+                        <td contenteditable="false" class="editable"><%= user.name %></td>
+                        <td contenteditable="false" class="editable"><%= user.surname %></td>
+                        <td contenteditable="false" class="editable"><%= user.username %></td>
+                        <td contenteditable="false" class="editable"><%= user.email %></td>
+                        <td>
+                            <button onclick="editRow(this)" class="primary-btn">Edit</button>
+                            <button onclick="saveRow(this)" class="primary-btn" style="display:none;">Save</button>
+                            <button onclick="deleteRow('<%= user.prof_id %>', this)" class="danger-btn">Delete</button>
+                        </td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function editRow(button) {
+            const row = button.closest('tr');
+            row.querySelectorAll('.editable').forEach(cell => cell.contentEditable = true);
+            button.style.display = 'none';
+            row.querySelector('button[onclick="saveRow(this)"]').style.display = 'inline';
+        }
+
+        function saveRow(button) {
+            const row = button.closest('tr');
+            const prof_id = row.cells[0].innerText;
+            const name = row.cells[1].innerText;
+            const surname = row.cells[2].innerText;
+            const username = row.cells[3].innerText;
+            const email = row.cells[4].innerText;
+
+            fetch('/update-user', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prof_id, name, surname, username, email })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ User updated!');
+                    row.querySelectorAll('.editable').forEach(cell => cell.contentEditable = false);
+                    row.querySelector('button[onclick="saveRow(this)"]').style.display = 'none';
+                    row.querySelector('button[onclick="editRow(this)"]').style.display = 'inline';
+                } else {
+                    alert('❌ Failed to update user.');
+                }
+            });
+        }
+
+        function deleteRow(prof_id, button) {
+            if (confirm('Are you sure you want to delete this user?')) {
+                fetch('/delete-user', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prof_id })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const row = button.closest('tr');
+                        row.remove();
+                        alert('✅ User deleted successfully!');
+                    } else {
+                        alert('❌ Failed to delete the user.');
+                    }
+                });
+            }
+        }
+
+        document.getElementById('excel-upload-form').addEventListener('submit', e => {
+            e.preventDefault();
+            const file = document.getElementById('excelFile').files[0];
+            const formData = new FormData();
+            formData.append('excelFile', file);
+
+            fetch('/upload-user-excel', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.text())
+            .then(text => {
+                alert(text);
+                window.location.reload();
+            });
+        });
+    </script>
+</body>
+</html>

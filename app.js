@@ -3,7 +3,7 @@ const mysql = require('mysql');
 const path = require('path');
 const bodyParser = require('body-parser');
 const app = express();
-const port = 4000;
+const port = 3000;
 const multer = require('multer');
 const xlsx = require('xlsx');
 const fs = require('fs');
@@ -37,10 +37,8 @@ app.get('/', (req, res) => {
 
 // ฟังก์ชันเพื่อจัดรูปแบบวันที่ โดยตัดส่วนของโซนเวลาออก
 const formatUpdateDate = (date) => {
-    if (!date) return 'N/A';
-
-    const bangkokTime = new Date(new Date(date).getTime() + 7 * 60 * 60 * 1000); // GMT+7
-    return bangkokTime.toString().split('GMT')[0].trim();
+    if (!date) return 'N/A'; // ถ้าเป็นค่า null แสดง 'N/A'
+    return new Date(date).toString().split('GMT')[0].trim(); // ตัดข้อมูลหลัง GMT ออก
 };
 
 // แสดงหน้า Upload พร้อม Dashboard ของ Subjects
@@ -89,7 +87,6 @@ app.get('/upload-subjects', (req, res) => {
                     // รวมชื่อและนามสกุลของอาจารย์ใน column professor
                     const prof = professors.find(p => p.prof_id === subject.prof_id);
                     subject.professor = prof ? prof.full_name : 'Unknown';  // ถ้าไม่พบจะให้แสดง "Unknown"
-                    subject.update_data = formatUpdateDate(subject.update_data); // ✅ Format date to Bangkok time
                 });
 
                 res.render('upload-subjects', { 
@@ -721,6 +718,103 @@ app.post('/survey/save-weight', (req, res) => {
     db.query(updateSql, [weight, year], (err, result) => {
         if (err) {
             console.error("Error updating weight:", err);
+            return res.json({ success: false });
+        }
+        res.json({ success: true });
+    });
+});
+
+//Users
+app.post('/upload-user-excel', upload.single('excelFile'), (req, res) => {
+    const filePath = req.file.path;
+
+    try {
+        const workbook = xlsx.readFile(filePath);
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const data = xlsx.utils.sheet_to_json(sheet);
+
+        // ✅ Filter ข้อมูลไม่ครบ
+        const users = data
+            .filter(row =>
+                row.name?.trim() &&
+                row.surname?.trim() &&
+                row.username?.trim() &&
+                row.email?.trim() &&
+                row.password?.trim()
+            )
+            .map(row => [
+                row.name.trim(),
+                row.surname.trim(),
+                row.username.trim(),
+                row.email.trim(),
+                row.password.trim(),
+                row.user_type || null
+            ]);
+
+        if (users.length === 0) {
+            fs.unlinkSync(filePath);
+            return res.status(400).send("❌ ไม่มีข้อมูลที่ครบถ้วนในไฟล์ Excel");
+        }
+
+        const sql = `
+            INSERT INTO user (name, surname, username, email, password, user_type)
+            VALUES ?
+        `;
+
+        db.query(sql, [users], (err) => {
+            fs.unlinkSync(filePath);
+            if (err) {
+                console.error("❌ Insert error:", err);
+                return res.status(500).send("❌ Error inserting user data");
+            }
+            res.send("✅ User data uploaded successfully!");
+        });
+    } catch (err) {
+        console.error("❌ Excel read error:", err);
+        fs.unlinkSync(filePath);
+        res.status(500).send("❌ Failed to process Excel file");
+    }
+});
+
+app.post('/update-user', (req, res) => {
+    const { prof_id, name, surname, username, email } = req.body;
+
+    if (!prof_id || !name || !surname || !username || !email) {
+        return res.json({ success: false, message: "Missing fields" });
+    }
+
+    const updateSql = `
+        UPDATE user
+        SET name = ?, surname = ?, username = ?, email = ?
+        WHERE prof_id = ?
+    `;
+
+    db.query(updateSql, [name, surname, username, email, prof_id], (err) => {
+        if (err) {
+            console.error("❌ Update error:", err);
+            return res.json({ success: false });
+        }
+        res.json({ success: true });
+    });
+});
+
+app.get('/users', (req, res) => {
+    const sql = `SELECT prof_id, name, surname, username, email FROM user ORDER BY prof_id ASC`;
+    db.query(sql, (err, users) => {
+        if (err) return res.status(500).send("❌ Error fetching users");
+        res.render('users', { users });
+    });
+});
+
+app.post('/delete-user', (req, res) => {
+    const { prof_id } = req.body;
+
+    if (!prof_id) return res.json({ success: false });
+
+    const deleteSql = `DELETE FROM user WHERE prof_id = ?`;
+    db.query(deleteSql, [prof_id], (err, result) => {
+        if (err) {
+            console.error("❌ Error deleting user:", err);
             return res.json({ success: false });
         }
         res.json({ success: true });
