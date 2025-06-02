@@ -753,7 +753,7 @@ app.post('/upload-user-excel', upload.single('excelFile'), (req, res) => {
 
         if (users.length === 0) {
             fs.unlinkSync(filePath);
-            return res.status(400).send("❌ ไม่มีข้อมูลที่ครบถ้วนในไฟล์ Excel");
+            return res.status(400).send("❌ No valid rows found in the uploaded Excel file.");
         }
 
         const sql = `
