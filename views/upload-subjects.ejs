@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+<link rel="icon" href="https://www.kmutt.ac.th/wp-content/uploads/2020/09/KMUTT_CI_Semi_Logo-normal-full-1061x1200.png" type="image/png">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -139,10 +140,16 @@
                     row.querySelectorAll('.editable').forEach(cell => {
                         cell.contentEditable = false;
                     });
-                    row.querySelector('.professor-dropdown').style.display = 'none'; // ซ่อน dropdown
-                    row.querySelector('.professor-text').style.display = 'inline'; // แสดงข้อความ Professor ID
+
+                    // อัปเดตค่าที่แสดงผลจริงด้วยค่าที่ถูกเลือกใน dropdown
+                    const newProfessor = row.querySelector('.professor-dropdown').value;
+                    row.querySelector('.professor-text').innerText = newProfessor;
+
+                    row.querySelector('.professor-dropdown').style.display = 'none';
+                    row.querySelector('.professor-text').style.display = 'inline';
                     row.querySelector('.edit-btn').style.display = 'inline';
                     row.querySelector('.save-btn').style.display = 'none';
+
                     alert('Data updated successfully!');
                 } else {
                     alert('Failed to update data');

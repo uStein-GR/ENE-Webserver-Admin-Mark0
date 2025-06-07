@@ -1,7 +1,17 @@
-<div class="navbar">
+<div class="navbar" style="justify-content: space-between;">
+  <div style="display: flex; gap: 20px;">
     <a href="/">Home</a>
     <a href="/users">Users</a>
     <a href="/upload-subjects">Upload</a>
     <a href="/so">SO</a>
     <a href="/survey">Survey</a>
+  </div>
+
+  <% if (typeof user !== 'undefined') { %>
+    <div>
+      <form action="/logout" method="GET" style="margin: 0;">
+        <button class="primary-btn" style="padding: 6px 10px;">Logout</button>
+      </form>
+    </div>
+  <% } %>
 </div>

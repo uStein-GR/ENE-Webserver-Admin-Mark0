@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<link rel="icon" href="https://www.kmutt.ac.th/wp-content/uploads/2020/09/KMUTT_CI_Semi_Logo-normal-full-1061x1200.png" type="image/png">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <% if (typeof user !== 'undefined') { %>
+    <%- include('navbar') %>
+  <% } %>
+
+  <div class="login-container">
+    <div class="login-box">
+      <h2 style="margin-bottom: 20px;">Admin Login</h2>
+
+      <form method="POST" action="/login" class="form-group" style="flex-direction: column; width: 100%;">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" required class="dropdown" />
+
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required class="dropdown" />
+
+        <button type="submit" class="primary-btn" style="margin-top: 15px;">Login</button>
+      </form>
+
+      <% if (typeof error !== 'undefined') { %>
+        <p style="color: red; margin-top: 15px;"><%= error %></p>
+      <% } %>
+    </div>
+  </div>
+</body>
+</html>

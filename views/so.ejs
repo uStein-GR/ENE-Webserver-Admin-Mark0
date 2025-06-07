@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+<link rel="icon" href="https://www.kmutt.ac.th/wp-content/uploads/2020/09/KMUTT_CI_Semi_Logo-normal-full-1061x1200.png" type="image/png">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -181,10 +182,10 @@
         window.saveRow = function(button) {
             const row = button.closest('tr');
             const committee_id = row.cells[0].innerText;
-            const professor_id = row.querySelector('.professor-dropdown').value;
+            const dropdown = row.querySelector('.professor-dropdown');
+            const professor_id = dropdown.value;
+            const selectedText = dropdown.selectedOptions[0].text; // ✅ ใช้เหมือนหน้า upload
             const resp_year = row.cells[3].innerText;
-
-            console.log("Data being sent:", { committee_id, professor_id, resp_year }); // เพิ่ม log เพื่อตรวจสอบข้อมูล
 
             fetch('/update-responsible-committee', {
                 method: 'POST',
@@ -196,20 +197,21 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    row.querySelector('.professor-text').innerText = professor_id; // อัปเดตข้อมูลที่แสดง
-                    row.querySelector('.professor-dropdown').style.display = 'none'; // ซ่อน dropdown
-                    row.querySelector('.professor-text').style.display = 'inline'; // แสดงค่า Professor ID
-                    row.querySelector('.edit-btn').style.display = 'inline'; // แสดงปุ่ม Edit
-                    row.querySelector('.save-btn').style.display = 'none'; // ซ่อนปุ่ม Save
+                    row.querySelector('.professor-text').innerText = selectedText; // ✅ อัปเดตแสดงชื่อจริง
+                    row.querySelector('.professor-dropdown').style.display = 'none';
+                    row.querySelector('.professor-text').style.display = 'inline';
+                    row.querySelector('.edit-btn').style.display = 'inline';
+                    row.querySelector('.save-btn').style.display = 'none';
                     alert('Data updated successfully!');
                 } else {
                     alert('Failed to update data');
                 }
             })
             .catch(error => {
-                console.error("Error occurred:", error); // เพิ่มการจับข้อผิดพลาดในกรณีที่เกิดข้อผิดพลาดจากการส่ง request
+                console.error("Error occurred:", error);
             });
         }
+
 
         // Delete Row
         window.deleteRow = function(committee_id, button) {

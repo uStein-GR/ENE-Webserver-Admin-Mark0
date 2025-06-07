@@ -12,6 +12,27 @@ const fs = require('fs');
 const upload = multer({ dest: 'uploads/' }); // โฟลเดอร์สำหรับเก็บไฟล์ที่อัปโหลด
 
 // เพิ่มการตั้งค่า body-parser สำหรับ JSON และ URL-encoded
+
+const session = require('express-session');
+app.use(session({
+    secret: 'your-secret-key', // เปลี่ยนเป็นคำลับจริง ๆ
+    resave: false,
+    saveUninitialized: false
+}));
+
+app.use((req, res, next) => {
+    res.locals.user = req.session.user;
+    next();
+});
+
+function isAdmin(req, res, next) {
+    if (req.session.user && req.session.user.user_type === 'admin') {
+        return next();
+    } else {
+        return res.redirect('/login'); // หรือ status(403)
+    }
+}
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -32,6 +53,13 @@ db.connect((err) => {
 });
 
 app.get('/', (req, res) => {
+    if (req.session.user && req.session.user.user_type === 'admin') {
+        return res.redirect('/home');  // ✅ ถ้า login แล้ว ให้ไปหน้า home
+    }
+    res.render('login'); // ❌ ถ้ายังไม่ login ค่อยแสดงหน้า login
+});
+
+app.get('/home', isAdmin, (req, res) => {
     res.render('home');
 });
 
@@ -42,7 +70,7 @@ const formatUpdateDate = (date) => {
 };
 
 // แสดงหน้า Upload พร้อม Dashboard ของ Subjects
-app.get('/upload-subjects', (req, res) => {
+app.get('/upload-subjects', isAdmin, (req, res) => {
     const { year, professor } = req.query;
     const getYearsSql = `SELECT DISTINCT year FROM subject ORDER BY year DESC`;
     const getProfessorsSql = `SELECT prof_id, name, surname FROM user`;
@@ -328,7 +356,7 @@ app.get('/filter-subjects', (req, res) => {
 
 
 //หน้า Survey
-app.get('/survey', (req, res) => {
+app.get('/survey', isAdmin, (req, res) => {
     const { year } = req.query;
     const getSubjectYearsSql = `SELECT DISTINCT year FROM subject ORDER BY year DESC`;
     const getSurveyYearsSql = `SELECT DISTINCT survey_year AS year FROM pi_survey ORDER BY survey_year DESC`;
@@ -444,7 +472,6 @@ app.post('/survey/save', upload.single('survey_file'), (req, res) => {
         });
 });
 
-
 //ตารางหน้า survey
 
 app.post('/survey/update', (req, res) => {
@@ -452,11 +479,11 @@ app.post('/survey/update', (req, res) => {
 
     const updateSql = `
         UPDATE pi_survey
-        SET PI_id = ?, PIS_score1 = ?, PIS_score2 = ?, PIS_score3 = ?, PIS_score4 = ?, PIS_score5 = ?, survey_year = ?
+        SET PIS_score1 = ?, PIS_score2 = ?, PIS_score3 = ?, PIS_score4 = ?, PIS_score5 = ?, survey_year = ?
         WHERE survey_id = ?
     `;
 
-    db.query(updateSql, [PI_id, PIS_score1, PIS_score2, PIS_score3, PIS_score4, PIS_score5, survey_year, survey_id], (err, result) => {
+    db.query(updateSql, [PIS_score1, PIS_score2, PIS_score3, PIS_score4, PIS_score5, survey_year, survey_id], (err, result) => {
         if (err) {
             console.error("Error updating survey data:", err);
             return res.json({ success: false });
@@ -481,7 +508,7 @@ app.post('/survey/delete', (req, res) => {
 });
 
 //หน้า SO
-app.get('/so', (req, res) => {
+app.get('/so', isAdmin, (req, res) => {
     const { year, professor } = req.query; // รับค่าปีและศาสตราจารย์ที่เลือก
 
     const getSubjectYearsSql = `SELECT DISTINCT year FROM subject ORDER BY year DESC`; // ดึงปีจากตาราง subject
@@ -777,7 +804,7 @@ app.post('/upload-user-excel', upload.single('excelFile'), (req, res) => {
 });
 
 app.post('/update-user', (req, res) => {
-    const { prof_id, name, surname, username, email } = req.body;
+    const { prof_id, name, surname, username, email, user_type } = req.body;
 
     if (!prof_id || !name || !surname || !username || !email) {
         return res.json({ success: false, message: "Missing fields" });
@@ -785,11 +812,14 @@ app.post('/update-user', (req, res) => {
 
     const updateSql = `
         UPDATE user
-        SET name = ?, surname = ?, username = ?, email = ?
+        SET name = ?, surname = ?, username = ?, email = ?, user_type = ?
         WHERE prof_id = ?
     `;
 
-    db.query(updateSql, [name, surname, username, email, prof_id], (err) => {
+    // ถ้า user_type เป็น null หรือ 'user' → ให้เขียนเป็น NULL
+    const finalUserType = user_type === 'admin' ? 'admin' : null;
+
+    db.query(updateSql, [name, surname, username, email, finalUserType, prof_id], (err) => {
         if (err) {
             console.error("❌ Update error:", err);
             return res.json({ success: false });
@@ -798,8 +828,8 @@ app.post('/update-user', (req, res) => {
     });
 });
 
-app.get('/users', (req, res) => {
-    const sql = `SELECT prof_id, name, surname, username, email FROM user ORDER BY prof_id ASC`;
+app.get('/users', isAdmin, (req, res) => {
+    const sql = `SELECT prof_id, name, surname, username, email, user_type FROM user ORDER BY prof_id ASC`;
     db.query(sql, (err, users) => {
         if (err) return res.status(500).send("❌ Error fetching users");
         res.render('users', { users });
@@ -818,5 +848,44 @@ app.post('/delete-user', (req, res) => {
             return res.json({ success: false });
         }
         res.json({ success: true });
+    });
+});
+
+// GET Login Page
+app.get('/login', (req, res) => {
+    // ถ้า login แล้วให้เด้งไป /home ทันที
+    if (req.session.user && req.session.user.user_type === 'admin') {
+        return res.redirect('/home');
+    }
+    res.render('login');
+});
+
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    const sql = `SELECT * FROM user WHERE username = ? AND password = ?`;
+
+    db.query(sql, [username, password], (err, results) => {
+        if (err) return res.status(500).send('Error on login');
+        if (results.length === 0) return res.render('login', { error: 'Invalid username or password' });
+
+        const user = results[0];
+        if (!user.user_type || user.user_type !== 'admin') {
+            return res.render('login', { error: 'Permission fail' });
+        }
+
+        req.session.user = {
+            id: user.prof_id,
+            username: user.username,
+            user_type: user.user_type
+        };
+
+        res.redirect('/home');
+    });
+});
+
+// Logout
+app.get('/logout', (req, res) => {
+    req.session.destroy(err => {
+        res.redirect('/login');
     });
 });
